@@ -12,7 +12,7 @@ const generateToken = (userId) => {
     return jwt.sign(
         { userId },
         process.env.JWT_SECRET,
-        { expiresIn: '7d' } // Token expires in 7 days
+        { expiresIn: '30d' } // Token expires in 7 days
     );
 };
 
@@ -141,7 +141,8 @@ router.post('/login', validateLogin, async (req, res) => {
     }
 });
 
-// Get User Profile (Protected)
+
+
 router.get('/profile', authenticateToken, async (req, res) => {
     try {
         const { password: _, ...userResponse } = req.user;

@@ -2,9 +2,11 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
-// Import user and stats routes
+// Import user, stats, and dashboard routes
 const userRoutes = require('./src/users/user');
 const statsRoutes = require('./src/users/stats');
+const dashboardRoutes = require('./src/users/dashboard');
+const eventsRoutes = require('./src/users/events');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -13,9 +15,12 @@ const prisma = new PrismaClient();
 app.use(express.json());
 
 
+
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/events', eventsRoutes);
 
 app.get('/', (req, res) => {
   res.send('FitSync Backend API is running!');

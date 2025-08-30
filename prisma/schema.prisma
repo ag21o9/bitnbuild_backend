@@ -27,10 +27,12 @@ model User {
     createdAt       DateTime      @default(now())
     updatedAt       DateTime      @updatedAt
 
-    dailyStats   DailyStat[]
-    progressLogs ProgressLog[]
-    mealPlans    MealPlan[]
-    weeklyPlans  WeeklyPlan[]
+    dailyStats       DailyStat[]
+    progressLogs     ProgressLog[]
+    mealPlans        MealPlan[]
+    weeklyPlans      WeeklyPlan[]
+    createdEvents    Event[] @relation("EventCreator")
+    eventRegistrations EventRegistration[]
 }
 
 model DailyStat {
@@ -43,8 +45,7 @@ model DailyStat {
     activeCalories Int
     heartRateAvg   Float
     sleepHours     Float
-    weightKg       Float // record weight for the day
-
+    weightKg       Float 
     createdAt DateTime @default(now())
 }
 
@@ -89,6 +90,35 @@ model WeeklyPlan {
     summary       String? // summary of weekly plan or goals
     aiGenerated   Boolean  @default(true)
     planData      Json // AI-generated structured meal plan for the week
+}
+
+model Event {
+    id          String   @id @default(uuid())
+    name        String
+    description String
+    location    String
+    duration    String   // e.g., "2 hours", "90 minutes"
+    type        String   // e.g., "Yoga", "CrossFit", "Running", "Cycling"
+    trainer     String?  // optional trainer name
+    creatorId   String
+    creator     User     @relation("EventCreator", fields: [creatorId], references: [id])
+    eventDate   DateTime
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    registrations EventRegistration[]
+}
+
+model EventRegistration {
+    id      String @id @default(uuid())
+    userId  String
+    user    User   @relation(fields: [userId], references: [id])
+    eventId String
+    event   Event  @relation(fields: [eventId], references: [id])
+    
+    registeredAt DateTime @default(now())
+    
+    @@unique([userId, eventId]) // Prevent duplicate registrations
 }
 
 enum Gender {
