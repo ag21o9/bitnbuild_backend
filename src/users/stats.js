@@ -653,7 +653,7 @@ router.post('/weight-goal', authenticateToken, async (req, res) => {
 Please provide a comprehensive plan to achieve the target weight safely and effectively.
 ${weightGoalParser.getFormatInstructions()}
 
-Respond with detailed meal plan, exercise recommendations, and things to avoid.`;
+Respond with detailed meal plan, exercise recommendations, and things to avoid. all in short and concise manner`;
 
         try {
             const result = await llm.invoke(prompt);
