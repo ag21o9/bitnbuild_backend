@@ -8,10 +8,10 @@ FitSync is an intelligent fitness application that integrates with smartwatches 
 
 ## 👥 Team: **Class_Bunkers**
 
-- **Abhijeet Gupta** - Team Lead & Backend Developer
+- **Vayu Gautam** - Frontend Developer & Team Lead  
 - **Vishesh Sachan** - Full Stack Developer
 - **Nazeeb Warsi** - AI/ML Specialist
-- **Vayu Gautam** - Frontend Developer
+- **Abhijeet Gupta** - Backend Developer & GenAI Developer
 
 *Participating in: **BitsNBuild Hackathon***
 
