@@ -1,0 +1,94 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum Gender {
+    MALE
+    FEMALE
+    OTHER
+}
+
+enum HealthGoal {
+    WEIGHT_LOSS
+    WEIGHT_GAIN
+    WEIGHT_MAINTENANCE
+}
+
+model User {
+    id                  String               @id @default(uuid())
+    name                String?
+    age                 Int
+    gender              Gender
+    weight              Float
+    height              Float
+    healthGoal          HealthGoal
+    dietaryRestrictions String?
+    createdAt           DateTime             @default(now())
+    updatedAt           DateTime             @updatedAt
+    healthData          HealthData?
+    mealPlans           MealPlan[]
+    chatbotInteractions ChatbotInteraction[]
+    healthRecords       HealthRecord[]
+    wearableData        WearableData[]
+}
+
+model HealthData {
+    id           String @id @default(uuid())
+    bmi          Float
+    calorieNeeds Float
+    userId       String @unique
+    user         User   @relation(fields: [userId], references: [id])
+}
+
+model MealPlan {
+    id                String   @id @default(uuid())
+    date              DateTime @default(now())
+    breakfast         String
+    lunch             String
+    dinner            String
+    breakfastCalories Float
+    lunchCalories     Float
+    dinnerCalories    Float
+    notes             String?
+    userId            String
+    user              User     @relation(fields: [userId], references: [id])
+}
+
+model ChatbotInteraction {
+    id        String   @id @default(uuid())
+    question  String
+    answer    String
+    createdAt DateTime @default(now())
+    userId    String
+    user      User     @relation(fields: [userId], references: [id])
+}
+
+model HealthRecord {
+    id          String   @id @default(uuid())
+    weight      Float?
+    diagnosis   String?
+    medications String?
+    allergies   String?
+    procedures  String?
+    notes       String?
+    visitDate   DateTime @default(now())
+    createdAt   DateTime @default(now())
+    userId      String
+    user        User     @relation(fields: [userId], references: [id])
+}
+
+model WearableData {
+    id             String   @id @default(uuid())
+    steps          Int?
+    heartRate      Int? 
+    sleepHours     Float? 
+    caloriesBurned Int?
+    createdAt      DateTime @default(now())
+    userId         String
+    user           User     @relation(fields: [userId], references: [id])
+}
