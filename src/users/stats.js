@@ -150,7 +150,7 @@ router.post('/activity', authenticateToken, async (req, res) => {
         let suggestions = '';
 
         // Get suggestions from LLM regardless of local estimate
-        const prompt = `I did ${minutes} minutes of ${activity}. My weight is ${user.currentWeightKg}kg. Age: ${user.age}, Goal: ${user.healthGoal}. Give fitness suggestions. ${activityParser.getFormatInstructions()}`;
+        const prompt = `I did ${minutes} minutes of ${activity}. My weight is ${user.currentWeightKg}kg. Age: ${user.age}, Goal: ${user.healthGoal}. Give fitness suggestions in short and concise way but all important information. ${activityParser.getFormatInstructions()}`;
 
         try {
             const result = await llm.invoke(prompt);
