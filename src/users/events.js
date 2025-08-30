@@ -99,7 +99,7 @@ router.get('/', authenticateToken, async (req, res) => {
         const skip = (page - 1) * limit;
 
         let whereCondition = {};
-        
+
         // Filter by event type if provided
         if (type) {
             whereCondition.type = {

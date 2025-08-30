@@ -2,6 +2,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
+
 // Import user, stats, and dashboard routes
 const userRoutes = require('./src/users/user');
 const statsRoutes = require('./src/users/stats');
@@ -13,7 +14,6 @@ const port = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 
 app.use(express.json());
-
 
 
 // Routes

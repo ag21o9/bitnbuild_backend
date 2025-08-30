@@ -19,6 +19,7 @@ router.get('/getdailystats', authenticateToken, async (req, res) => {
 		const userId = req.user.id;
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
+		const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
 		// Check if today's stats exist
 		let stat = await prisma.dailyStat.findFirst({
@@ -26,10 +27,45 @@ router.get('/getdailystats', authenticateToken, async (req, res) => {
 				userId,
 				date: {
 					gte: today,
-					lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+					lt: tomorrow
 				}
 			}
 		});
+
+		// Get today's activities
+		const todaysActivities = await prisma.activity.findMany({
+			where: {
+				userId,
+				date: {
+					gte: today,
+					lt: tomorrow
+				}
+			}
+		});
+
+		// Calculate activity summary
+		const activityCount = todaysActivities.length;
+		const totalDuration = todaysActivities.reduce((sum, activity) => sum + activity.duration, 0);
+		const totalCaloriesFromActivities = todaysActivities.reduce((sum, activity) => sum + activity.caloriesBurnt, 0);
+
+		// Calculate BMI
+		let bmi = null;
+		let bmiCategory = null;
+		if (req.user.currentWeightKg && req.user.heightCm) {
+			const heightM = req.user.heightCm / 100;
+			bmi = parseFloat((req.user.currentWeightKg / (heightM * heightM)).toFixed(1));
+			
+			// BMI categorization
+			if (bmi < 18.5) {
+				bmiCategory = { category: 'Underweight', good: false };
+			} else if (bmi < 25) {
+				bmiCategory = { category: 'Normal', good: true };
+			} else if (bmi < 30) {
+				bmiCategory = { category: 'Overweight', good: false };
+			} else {
+				bmiCategory = { category: 'Obese', good: false };
+			}
+		}
 
 		if (!stat) {
 			// Generate random stats
@@ -48,10 +84,18 @@ router.get('/getdailystats', authenticateToken, async (req, res) => {
 
 		res.json({
 			success: true,
-			data: stat
+			data: {
+				...stat,
+				activitiesCount: activityCount,
+				totalActivityDuration: totalDuration, // in minutes
+				totalCaloriesFromActivities: totalCaloriesFromActivities,
+				bmi: bmi,
+				bmiCategory: bmiCategory
+			}
 		});
 	} catch (err) {
-		res.status(500).json({ success: false, message: 'Server error' });
+        console.log(err)
+		res.status(500).json({ success: false, message: 'No stats found for today' });
 	}
 });
 

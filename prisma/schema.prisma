@@ -33,6 +33,7 @@ model User {
     weeklyPlans      WeeklyPlan[]
     createdEvents    Event[] @relation("EventCreator")
     eventRegistrations EventRegistration[]
+    activities       Activity[]
 }
 
 model DailyStat {
@@ -40,7 +41,7 @@ model DailyStat {
     userId String
     user   User   @relation(fields: [userId], references: [id])
 
-    date           DateTime @unique @default(now())
+    date           DateTime @default(now())
     steps          Int
     activeCalories Int
     heartRateAvg   Float
@@ -119,6 +120,19 @@ model EventRegistration {
     registeredAt DateTime @default(now())
     
     @@unique([userId, eventId]) // Prevent duplicate registrations
+}
+
+model Activity {
+    id            String   @id @default(uuid())
+    userId        String
+    user          User     @relation(fields: [userId], references: [id])
+    
+    activityName  String   // e.g., "running", "swimming", "yoga"
+    duration      Int      // duration in minutes
+    caloriesBurnt Float    // calories burned during activity
+    suggestions   String?  // AI-generated suggestions
+    date          DateTime @default(now())
+    createdAt     DateTime @default(now())
 }
 
 enum Gender {

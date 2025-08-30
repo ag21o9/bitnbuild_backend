@@ -145,38 +145,286 @@ router.post('/activity', authenticateToken, async (req, res) => {
         const user = req.user;
         const { activity, minutes = 30 } = req.body;
         if (!activity) return res.status(400).json({ error: 'activity required' });
-        const calories = calculateCalories(activity, minutes, user.currentWeightKg);
+        
+        let calories = calculateCalories(activity, minutes, user.currentWeightKg);
+        let suggestions = '';
 
-        // If we have a local estimate, return it and suggestions from LLM
-        if (calories) {
-            // Get suggestions from LLM
-            const prompt = `I did ${minutes} minutes of ${activity}. My weight is ${user.currentWeightKg}kg. Give a fitness suggestion. Output strictly as JSON with keys: calorieBurnt, suggestions. ${activityParser.getFormatInstructions()}`;
-            try {
-                const result = await llm.call([
-                    ["system", "You are a fitness expert. Respond only in the required JSON format."],
-                    ["user", prompt.replace('calorieBurnt', calories)],
-                ]);
-                const parsed = await activityParser.parse(result.content);
-                return res.json(parsed);
-            } catch (err) {
-                return res.status(404).json({ error: 'not found, try refreshing' });
-            }
-        }
-
-        // If not found locally, ask LLM for calories and suggestions
-        const prompt = `How many calories does a ${user.currentWeightKg}kg person burn in ${minutes} minutes of ${activity}? Output strictly as JSON with keys: calorieBurnt, suggestions.`;
+        // Get suggestions from LLM regardless of local estimate
+        const prompt = `I did ${minutes} minutes of ${activity}. My weight is ${user.currentWeightKg}kg. Age: ${user.age}, Goal: ${user.healthGoal}. Give fitness suggestions. ${activityParser.getFormatInstructions()}`;
+        
         try {
-            const result = await llm.call([
-                ["system", "You are a fitness expert. Respond only in the required JSON format."],
-                ["user", prompt],
-            ]);
+            const result = await llm.invoke(prompt);
             const parsed = await activityParser.parse(result.content);
-            return res.json(parsed);
+            
+            // Use AI calorie estimate if local calculation failed
+            if (!calories) {
+                calories = parsed.calorieBurnt;
+            }
+            suggestions = parsed.suggestions;
+
+            // Store activity in database
+            const storedActivity = await prisma.activity.create({
+                data: {
+                    userId: user.id,
+                    activityName: activity,
+                    duration: minutes,
+                    caloriesBurnt: calories,
+                    suggestions: suggestions,
+                    date: new Date()
+                }
+            });
+
+            return res.json({
+                success: true,
+                message: 'Activity logged successfully',
+                data: {
+                    calorieBurnt: calories,
+                    suggestions: suggestions
+                }
+            });
+
         } catch (err) {
+            console.error('Activity AI error:', err);
+            
+            // If AI fails but we have local calorie estimate, still store it
+            if (calories) {
+                const storedActivity = await prisma.activity.create({
+                    data: {
+                        userId: user.id,
+                        activityName: activity,
+                        duration: minutes,
+                        caloriesBurnt: calories,
+                        suggestions: 'AI suggestions temporarily unavailable',
+                        date: new Date()
+                    }
+                });
+
+                return res.json({
+                    success: true,
+                    message: 'Activity logged successfully',
+                    data: {
+                        calorieBurnt: calories,
+                        suggestions: 'Great job completing your workout! Keep up the good work.'
+                    }
+                });
+            }
+            
             return res.status(404).json({ error: 'not found, try refreshing' });
         }
     } catch (err) {
+        console.error('Activity endpoint error:', err);
         return res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/stats/activities - Get all user activities
+router.get('/activities', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { page = 1, limit = 20, activityName, startDate, endDate } = req.query;
+        const skip = (page - 1) * limit;
+
+        // Build where condition
+        let whereCondition = { userId };
+
+        // Filter by activity name if provided
+        if (activityName) {
+            whereCondition.activityName = {
+                contains: activityName,
+                mode: 'insensitive'
+            };
+        }
+
+        // Filter by date range if provided
+        if (startDate || endDate) {
+            whereCondition.date = {};
+            if (startDate) {
+                const start = new Date(startDate);
+                if (!isNaN(start.getTime())) {
+                    whereCondition.date.gte = start;
+                }
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                if (!isNaN(end.getTime())) {
+                    // Set to end of day
+                    end.setHours(23, 59, 59, 999);
+                    whereCondition.date.lte = end;
+                }
+            }
+        }
+
+        const activities = await prisma.activity.findMany({
+            where: whereCondition,
+            orderBy: { date: 'desc' },
+            skip: parseInt(skip),
+            take: parseInt(limit)
+        });
+
+        const totalActivities = await prisma.activity.count({ where: whereCondition });
+
+        // Calculate total calories burnt
+        const totalCalories = activities.reduce((sum, activity) => sum + activity.caloriesBurnt, 0);
+
+        res.status(200).json({
+            success: true,
+            message: 'Activities retrieved successfully',
+            data: {
+                activities,
+                summary: {
+                    totalActivities: activities.length,
+                    totalCaloriesBurnt: Math.round(totalCalories),
+                    averageCaloriesPerActivity: activities.length > 0 ? Math.round(totalCalories / activities.length) : 0
+                },
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages: Math.ceil(totalActivities / limit),
+                    totalActivities,
+                    hasNext: (page * limit) < totalActivities,
+                    hasPrev: page > 1
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Activities fetch error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error while fetching activities'
+        });
+    }
+});
+
+// GET /api/stats/activities/:date - Get activities for a specific date
+router.get('/activities/:date', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { date } = req.params;
+
+        // Parse the date
+        const targetDate = new Date(date);
+        if (isNaN(targetDate.getTime())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid date format. Use YYYY-MM-DD'
+            });
+        }
+
+        // Set to start and end of day
+        targetDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000);
+
+        const activities = await prisma.activity.findMany({
+            where: {
+                userId,
+                date: {
+                    gte: targetDate,
+                    lt: nextDay
+                }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Calculate total calories for the day
+        const totalCalories = activities.reduce((sum, activity) => sum + activity.caloriesBurnt, 0);
+        const totalDuration = activities.reduce((sum, activity) => sum + activity.duration, 0);
+
+        res.status(200).json({
+            success: true,
+            message: `Activities for ${date} retrieved successfully`,
+            data: {
+                date: date,
+                activities,
+                summary: {
+                    totalActivities: activities.length,
+                    totalDuration: totalDuration,
+                    totalCaloriesBurnt: Math.round(totalCalories),
+                    averageCaloriesPerActivity: activities.length > 0 ? Math.round(totalCalories / activities.length) : 0
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Daily activities fetch error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error while fetching daily activities'
+        });
+    }
+});
+
+// GET /api/stats/activities/summary - Get activity summary statistics
+router.get('/activities/summary', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { days = 7 } = req.query; // Default to last 7 days
+
+        const daysAgo = new Date();
+        daysAgo.setDate(daysAgo.getDate() - parseInt(days));
+        daysAgo.setHours(0, 0, 0, 0);
+
+        const activities = await prisma.activity.findMany({
+            where: {
+                userId,
+                date: {
+                    gte: daysAgo
+                }
+            },
+            orderBy: { date: 'desc' }
+        });
+
+        // Calculate statistics
+        const totalActivities = activities.length;
+        const totalCalories = activities.reduce((sum, activity) => sum + activity.caloriesBurnt, 0);
+        const totalDuration = activities.reduce((sum, activity) => sum + activity.duration, 0);
+
+        // Group by activity type
+        const activityBreakdown = activities.reduce((acc, activity) => {
+            const name = activity.activityName.toLowerCase();
+            if (!acc[name]) {
+                acc[name] = {
+                    count: 0,
+                    totalCalories: 0,
+                    totalDuration: 0
+                };
+            }
+            acc[name].count++;
+            acc[name].totalCalories += activity.caloriesBurnt;
+            acc[name].totalDuration += activity.duration;
+            return acc;
+        }, {});
+
+        // Get most frequent activity
+        const mostFrequentActivity = Object.entries(activityBreakdown)
+            .sort(([,a], [,b]) => b.count - a.count)[0];
+
+        res.status(200).json({
+            success: true,
+            message: `Activity summary for last ${days} days retrieved successfully`,
+            data: {
+                period: `Last ${days} days`,
+                summary: {
+                    totalActivities,
+                    totalCalories: Math.round(totalCalories),
+                    totalDuration: totalDuration,
+                    averageCaloriesPerDay: Math.round(totalCalories / parseInt(days)),
+                    averageDurationPerDay: Math.round(totalDuration / parseInt(days)),
+                    mostFrequentActivity: mostFrequentActivity ? {
+                        name: mostFrequentActivity[0],
+                        count: mostFrequentActivity[1].count,
+                        totalCalories: Math.round(mostFrequentActivity[1].totalCalories)
+                    } : null
+                },
+                activityBreakdown
+            }
+        });
+
+    } catch (error) {
+        console.error('Activity summary fetch error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error while fetching activity summary'
+        });
     }
 });
 
