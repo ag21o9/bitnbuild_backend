@@ -56,7 +56,7 @@ router.post('/register', validateRegistration, async (req, res) => {
                 name,
                 email,
                 password: hashedPassword,
-                profileImage,
+                // profileImage,
                 age,
                 heightCm,
                 currentWeightKg,
@@ -68,10 +68,8 @@ router.post('/register', validateRegistration, async (req, res) => {
             }
         });
 
-        // Generate token
         const token = generateToken(newUser.id);
 
-        // Remove password from response
         const { password: _, ...userResponse } = newUser;
 
         res.status(201).json({
