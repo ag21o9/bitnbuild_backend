@@ -27,13 +27,13 @@ model User {
     createdAt       DateTime      @default(now())
     updatedAt       DateTime      @updatedAt
 
-    dailyStats       DailyStat[]
-    progressLogs     ProgressLog[]
-    mealPlans        MealPlan[]
-    weeklyPlans      WeeklyPlan[]
-    createdEvents    Event[] @relation("EventCreator")
+    dailyStats         DailyStat[]
+    progressLogs       ProgressLog[]
+    mealPlans          MealPlan[]
+    weeklyPlans        WeeklyPlan[]
+    createdEvents      Event[]             @relation("EventCreator")
     eventRegistrations EventRegistration[]
-    activities       Activity[]
+    activities         Activity[]
 }
 
 model DailyStat {
@@ -46,8 +46,8 @@ model DailyStat {
     activeCalories Int
     heartRateAvg   Float
     sleepHours     Float
-    weightKg       Float 
-    createdAt DateTime @default(now())
+    weightKg       Float
+    createdAt      DateTime @default(now())
 }
 
 model ProgressLog {
@@ -98,9 +98,9 @@ model Event {
     name        String
     description String
     location    String
-    duration    String   // e.g., "2 hours", "90 minutes"
-    type        String   // e.g., "Yoga", "CrossFit", "Running", "Cycling"
-    trainer     String?  // optional trainer name
+    duration    String // e.g., "2 hours", "90 minutes"
+    type        String // e.g., "Yoga", "CrossFit", "Running", "Cycling"
+    trainer     String? // optional trainer name
     creatorId   String
     creator     User     @relation("EventCreator", fields: [creatorId], references: [id])
     eventDate   DateTime
@@ -116,21 +116,21 @@ model EventRegistration {
     user    User   @relation(fields: [userId], references: [id])
     eventId String
     event   Event  @relation(fields: [eventId], references: [id])
-    
+
     registeredAt DateTime @default(now())
-    
+
     @@unique([userId, eventId]) // Prevent duplicate registrations
 }
 
 model Activity {
-    id            String   @id @default(uuid())
-    userId        String
-    user          User     @relation(fields: [userId], references: [id])
-    
-    activityName  String   // e.g., "running", "swimming", "yoga"
-    duration      Int      // duration in minutes
-    caloriesBurnt Float    // calories burned during activity
-    suggestions   String?  // AI-generated suggestions
+    id     String @id @default(uuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    activityName  String // e.g., "running", "swimming", "yoga"
+    duration      Int // duration in minutes
+    caloriesBurnt Float // calories burned during activity
+    suggestions   String? // AI-generated suggestions
     date          DateTime @default(now())
     createdAt     DateTime @default(now())
 }

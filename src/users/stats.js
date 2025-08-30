@@ -94,7 +94,7 @@ const chatResponseParser = StructuredOutputParser.fromZodSchema(
 const llm = new ChatGoogleGenerativeAI({
     model: "gemini-2.0-flash",
     temperature: 0.2,
-    maxRetries: 2,
+    maxRetries: 2
 });
 
 
@@ -145,17 +145,17 @@ router.post('/activity', authenticateToken, async (req, res) => {
         const user = req.user;
         const { activity, minutes = 30 } = req.body;
         if (!activity) return res.status(400).json({ error: 'activity required' });
-        
+
         let calories = calculateCalories(activity, minutes, user.currentWeightKg);
         let suggestions = '';
 
         // Get suggestions from LLM regardless of local estimate
         const prompt = `I did ${minutes} minutes of ${activity}. My weight is ${user.currentWeightKg}kg. Age: ${user.age}, Goal: ${user.healthGoal}. Give fitness suggestions. ${activityParser.getFormatInstructions()}`;
-        
+
         try {
             const result = await llm.invoke(prompt);
             const parsed = await activityParser.parse(result.content);
-            
+
             // Use AI calorie estimate if local calculation failed
             if (!calories) {
                 calories = parsed.calorieBurnt;
@@ -185,7 +185,7 @@ router.post('/activity', authenticateToken, async (req, res) => {
 
         } catch (err) {
             console.error('Activity AI error:', err);
-            
+
             // If AI fails but we have local calorie estimate, still store it
             if (calories) {
                 const storedActivity = await prisma.activity.create({
@@ -208,7 +208,7 @@ router.post('/activity', authenticateToken, async (req, res) => {
                     }
                 });
             }
-            
+
             return res.status(404).json({ error: 'not found, try refreshing' });
         }
     } catch (err) {
@@ -396,7 +396,7 @@ router.get('/activities/summary', authenticateToken, async (req, res) => {
 
         // Get most frequent activity
         const mostFrequentActivity = Object.entries(activityBreakdown)
-            .sort(([,a], [,b]) => b.count - a.count)[0];
+            .sort(([, a], [, b]) => b.count - a.count)[0];
 
         res.status(200).json({
             success: true,
@@ -792,7 +792,7 @@ Examples of IRRELEVANT topics: weather, entertainment, technology (unless fitnes
 ${chatResponseParser.getFormatInstructions()}
 
 If isRelevant is false, set response to "I can only help with fitness, health, nutrition, and wellness related questions."
-If isRelevant is true, provide a helpful response using the user's data below:
+If isRelevant is true, provide a helpful response using the user's data below in not very long way, short but cover important points:
 
 ${userContext}
 `;

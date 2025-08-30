@@ -146,11 +146,17 @@ router.get('/', authenticateToken, async (req, res) => {
 
         const totalEvents = await prisma.event.count({ where: whereCondition });
 
+        // Add participant count to each event
+        const eventsWithParticipantCount = events.map(event => ({
+            ...event,
+            participantCount: event.registrations.length
+        }));
+
         res.status(200).json({
             success: true,
             message: 'Events retrieved successfully',
             data: {
-                events,
+                events: eventsWithParticipantCount,
                 pagination: {
                     currentPage: parseInt(page),
                     totalPages: Math.ceil(totalEvents / limit),
@@ -210,7 +216,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
             success: true,
             message: 'Event retrieved successfully',
             data: {
-                event
+                event: {
+                    ...event,
+                    participantCount: event.registrations.length
+                }
             }
         });
 
@@ -476,11 +485,17 @@ router.get('/my/created', authenticateToken, async (req, res) => {
             }
         });
 
+        // Add participant count to each event
+        const eventsWithParticipantCount = events.map(event => ({
+            ...event,
+            participantCount: event.registrations.length
+        }));
+
         res.status(200).json({
             success: true,
             message: 'Your created events retrieved successfully',
             data: {
-                events,
+                events: eventsWithParticipantCount,
                 total: events.length
             }
         });
