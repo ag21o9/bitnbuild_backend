@@ -1,94 +1,112 @@
+// Prisma schema for FitSync v2 (Progress-Oriented Design)
+// PostgreSQL + Prisma ORM
+
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-}
-
-enum Gender {
-    MALE
-    FEMALE
-    OTHER
-}
-
-enum HealthGoal {
-    WEIGHT_LOSS
-    WEIGHT_GAIN
-    WEIGHT_MAINTENANCE
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-    id                  String               @id @default(uuid())
-    name                String?
-    age                 Int
-    gender              Gender
-    weight              Float
-    height              Float
-    healthGoal          HealthGoal
-    dietaryRestrictions String?
-    createdAt           DateTime             @default(now())
-    updatedAt           DateTime             @updatedAt
-    healthData          HealthData?
-    mealPlans           MealPlan[]
-    chatbotInteractions ChatbotInteraction[]
-    healthRecords       HealthRecord[]
-    wearableData        WearableData[]
+  id              String        @id @default(uuid())
+  name            String
+  email           String        @unique
+  passwordHash    String
+  age             Int
+  heightCm        Float
+  currentWeightKg Float
+  gender          Gender
+  healthGoal      HealthGoal
+  targetWeightKg  Float?
+  targetDeadline  DateTime?     // optional deadline for goal
+  activityLevel   ActivityLevel
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  dailyStats      DailyStat[]
+  progressLogs    ProgressLog[]
+  mealPlans       MealPlan[]
+  weeklyPlans     WeeklyPlan[]
 }
 
-model HealthData {
-    id           String @id @default(uuid())
-    bmi          Float
-    calorieNeeds Float
-    userId       String @unique
-    user         User   @relation(fields: [userId], references: [id])
+model DailyStat {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
+  date           DateTime @default(now()) @unique
+  steps          Int
+  activeCalories Int
+  heartRateAvg   Float
+  sleepHours     Float
+  weightKg       Float     // record weight for the day
+
+  createdAt      DateTime  @default(now())
+}
+
+model ProgressLog {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+
+  date         DateTime @default(now())
+  weightKg     Float
+  bmi          Float
+  caloriesIn   Float
+  caloriesOut  Float
+  progressNote String?  // e.g., "Improved cardio performance"
+
+  createdAt    DateTime @default(now())
 }
 
 model MealPlan {
-    id                String   @id @default(uuid())
-    date              DateTime @default(now())
-    breakfast         String
-    lunch             String
-    dinner            String
-    breakfastCalories Float
-    lunchCalories     Float
-    dinnerCalories    Float
-    notes             String?
-    userId            String
-    user              User     @relation(fields: [userId], references: [id])
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  date        DateTime @default(now())
+  breakfast   String
+  lunch       String
+  dinner      String
+  snacks      String?
+  totalCalories Float
+  proteinGrams  Float
+  carbsGrams    Float
+  fatsGrams     Float
 }
 
-model ChatbotInteraction {
-    id        String   @id @default(uuid())
-    question  String
-    answer    String
-    createdAt DateTime @default(now())
-    userId    String
-    user      User     @relation(fields: [userId], references: [id])
+model WeeklyPlan {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+
+  weekStartDate DateTime
+  weekEndDate   DateTime
+  summary       String?  // summary of weekly plan or goals
+  aiGenerated   Boolean  @default(true)
+  planData      Json     // AI-generated structured meal plan for the week
 }
 
-model HealthRecord {
-    id          String   @id @default(uuid())
-    weight      Float?
-    diagnosis   String?
-    medications String?
-    allergies   String?
-    procedures  String?
-    notes       String?
-    visitDate   DateTime @default(now())
-    createdAt   DateTime @default(now())
-    userId      String
-    user        User     @relation(fields: [userId], references: [id])
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }
 
-model WearableData {
-    id             String   @id @default(uuid())
-    steps          Int?
-    heartRate      Int? 
-    sleepHours     Float? 
-    caloriesBurned Int?
-    createdAt      DateTime @default(now())
-    userId         String
-    user           User     @relation(fields: [userId], references: [id])
+enum HealthGoal {
+  WEIGHT_LOSS
+  WEIGHT_GAIN
+  MAINTENANCE
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
 }
